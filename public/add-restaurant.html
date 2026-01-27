@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>إضافة مطعم جديد</title>
+    <style>
+        body { font-family: Arial; padding: 20px; text-align: center; }
+        input { display: block; margin: 10px auto; padding: 10px; width: 80%; }
+        button { background: green; color: white; padding: 10px 20px; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>إضافة مطعم جديد للمنصة</h2>
+    <input type="text" id="name" placeholder="اسم المطعم">
+    <input type="text" id="slug" placeholder="الرابط المختصر (مثال: my-rest)">
+    <input type="text" id="token" placeholder="توكن بوت التلجرام الخاص بالمطعم">
+    <input type="text" id="chatId" placeholder="Chat ID (رقم صاحب المطعم)">
+    <button onclick="saveRestaurant()">حفظ المطعم</button>
+
+    <script>
+        async function saveRestaurant() {
+            const data = {
+                name: document.getElementById('name').value,
+                slug: document.getElementById('slug').value,
+                telegram_bot_token: document.getElementById('token').value,
+                telegram_chat_id: document.getElementById('chatId').value
+            };
+            const res = await fetch('/api/restaurants', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if(res.ok) alert('تم إضافة المطعم بنجاح!');
+            else alert('حدث خطأ أثناء الحفظ');
+        }
+    </script>
+</body>
+</html>
