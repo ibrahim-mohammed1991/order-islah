@@ -29,19 +29,27 @@ app.use('/api/orders', orderRoutes);
 
 app.get('/', (req, res) => {
   res.json({ 
-    message: '🍔 مرحباً بك في منصة المطاعم الذكية!',
+    message: 'مرحباً بك في منصة المطاعم الذكية',
     status: 'online',
-    version: '1.0.0'
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      initDb: '/api/init-db',
+      restaurants: '/api/restaurants',
+      menu: '/api/menu',
+      orders: '/api/orders'
+    }
   });
 });
 
 app.get('/api/health', async (req, res) => {
   try {
-    const result = await pool.query('SELECT NOW() as time');
+    const result = await pool.query('SELECT NOW() as time, version() as version');
     res.json({ 
       status: 'OK',
       database: 'Connected',
-      time: result.rows[0].time
+      time: result.rows[0].time,
+      db_version: result.rows[0].version.split(' ')[0]
     });
   } catch (error) {
     res.status(500).json({ 
@@ -54,7 +62,7 @@ app.get('/api/health', async (req, res) => {
 
 app.get('/api/init-db', async (req, res) => {
   try {
-    await pool.query(`
+    const initSQL = `
       CREATE TABLE IF NOT EXISTS restaurants (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         slug VARCHAR(100) UNIQUE NOT NULL,
@@ -90,9 +98,9 @@ app.get('/api/init-db', async (req, res) => {
         customer_name VARCHAR(255),
         customer_phone VARCHAR(20) NOT NULL,
         customer_address TEXT,
-        order_type VARCHAR(20) NOT NULL,
+        order_type VARCHAR(20) NOT NULL CHECK (order_type IN ('delivery', 'pickup', 'reservation')),
         total_price INTEGER NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending',
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'ready', 'completed', 'cancelled')),
         notes TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
@@ -112,11 +120,12 @@ app.get('/api/init-db', async (req, res) => {
       CREATE INDEX IF NOT EXISTS idx_orders_restaurant ON orders(restaurant_id);
       CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
       CREATE INDEX IF NOT EXISTS idx_notifications_restaurant ON notifications(restaurant_id);
-    `);
+    `;
 
+    await pool.query(initSQL);
     res.json({ 
       success: true, 
-      message: 'Database initialized successfully!' 
+      message: 'Database initialized successfully' 
     });
   } catch (error) {
     res.status(500).json({ 
@@ -139,48 +148,3 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
-```
-
----
-
-### **الخطوة 3️⃣: احفظ التغييرات**
-
-1. **scroll للأسفل**
-
-2. **اضغط الزر الأخضر:** `Commit changes`
-
-3. **في النافذة اللي تطلع، اضغط:** `Commit changes` مرة ثانية
-
----
-
-## 🔄 **Railway راح يعيد النشر تلقائياً!**
-
-**انتظر دقيقة واحدة...**
-
----
-
-## 🎯 **بعد دقيقة:**
-
-1. **اذهب لـ Railway**
-
-2. **افتح المشروع** `restaurant-platform`
-
-3. **اضغط على تبويب:** `Deployments`
-
-4. **شوف آخر deployment:**
-   - لازم يكون: ✅ **Success**
-
-5. **اضغط على:** `View Logs`
-
-6. **لازم تشوف:**
-```
-   Server running on port: 4000
-```
-
----
-
-## ✅ **اختبار التطبيق:**
-
-**افتح المتصفح واكتب:**
-```
-https://YOUR-RAILWAY-URL.up.railway.app/api/health
