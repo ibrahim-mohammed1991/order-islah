@@ -28,21 +28,24 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+  res.json({ 
+    message: '🍔 مرحباً بك في منصة المطاعم الذكية!',
+    status: 'online',
+    version: '1.0.0'
+  });
 });
 
 app.get('/api/health', async (req, res) => {
   try {
-    const result = await pool.query('SELECT NOW() as time, version() as version');
+    const result = await pool.query('SELECT NOW() as time');
     res.json({ 
-      status: 'OK ✅',
+      status: 'OK',
       database: 'Connected',
-      time: result.rows[0].time,
-      db_version: result.rows[0].version.split(' ')[0]
+      time: result.rows[0].time
     });
   } catch (error) {
     res.status(500).json({ 
-      status: 'Error ❌',
+      status: 'Error',
       database: 'Disconnected',
       error: error.message 
     });
@@ -51,7 +54,7 @@ app.get('/api/health', async (req, res) => {
 
 app.get('/api/init-db', async (req, res) => {
   try {
-    const initSQL = `
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS restaurants (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         slug VARCHAR(100) UNIQUE NOT NULL,
@@ -87,9 +90,9 @@ app.get('/api/init-db', async (req, res) => {
         customer_name VARCHAR(255),
         customer_phone VARCHAR(20) NOT NULL,
         customer_address TEXT,
-        order_type VARCHAR(20) NOT NULL CHECK (order_type IN ('delivery', 'pickup', 'reservation')),
+        order_type VARCHAR(20) NOT NULL,
         total_price INTEGER NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'ready', 'completed', 'cancelled')),
+        status VARCHAR(20) DEFAULT 'pending',
         notes TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
@@ -109,12 +112,11 @@ app.get('/api/init-db', async (req, res) => {
       CREATE INDEX IF NOT EXISTS idx_orders_restaurant ON orders(restaurant_id);
       CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
       CREATE INDEX IF NOT EXISTS idx_notifications_restaurant ON notifications(restaurant_id);
-    `;
+    `);
 
-    await pool.query(initSQL);
     res.json({ 
       success: true, 
-      message: '✅ تم إنشاء جداول قاعدة البيانات بنجاح!' 
+      message: 'Database initialized successfully!' 
     });
   } catch (error) {
     res.status(500).json({ 
@@ -127,46 +129,58 @@ app.get('/api/init-db', async (req, res) => {
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ 
-    error: 'حدث خطأ في السيرفر',
+    error: 'Server error',
     message: err.message 
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`
-╔═══════════════════════════════════════╗
-║   🚀 منصة المطاعم الذكية             ║
-║   📡 السيرفر يعمل على المنفذ ${PORT}   ║
-║   🌐 البيئة: ${process.env.NODE_ENV || 'development'}        ║
-╚═══════════════════════════════════════╝
-  `);
+  console.log('Server running on port: ' + PORT);
 });
 
 module.exports = app;
 ```
 
-- اضغط `Commit changes`
+---
+
+### **الخطوة 3️⃣: احفظ التغييرات**
+
+1. **scroll للأسفل**
+
+2. **اضغط الزر الأخضر:** `Commit changes`
+
+3. **في النافذة اللي تطلع، اضغط:** `Commit changes` مرة ثانية
 
 ---
 
-## ✅ **الآن كل الـ 12 ملف موجودين!**
+## 🔄 **Railway راح يعيد النشر تلقائياً!**
 
-### **الهيكل النهائي:**
+**انتظر دقيقة واحدة...**
+
+---
+
+## 🎯 **بعد دقيقة:**
+
+1. **اذهب لـ Railway**
+
+2. **افتح المشروع** `restaurant-platform`
+
+3. **اضغط على تبويب:** `Deployments`
+
+4. **شوف آخر deployment:**
+   - لازم يكون: ✅ **Success**
+
+5. **اضغط على:** `View Logs`
+
+6. **لازم تشوف:**
 ```
-restaurant-platform/
-├── package.json           ✅
-├── server.js              ✅
-├── .env                   ✅
-├── .gitignore             ✅
-├── README.md              ✅
-├── routes/
-│   ├── auth.js            ✅
-│   ├── restaurants.js     ✅
-│   ├── menu.js            ✅
-│   └── orders.js          ✅
-├── middleware/
-│   └── auth.js            ✅
-├── telegram/
-│   └── bot.js             ✅
-└── public/
-    └── index.html         ✅
+   Server running on port: 4000
+```
+
+---
+
+## ✅ **اختبار التطبيق:**
+
+**افتح المتصفح واكتب:**
+```
+https://YOUR-RAILWAY-URL.up.railway.app/api/health
