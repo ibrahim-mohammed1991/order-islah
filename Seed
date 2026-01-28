@@ -1,0 +1,168 @@
+// seed.js - ملف لإضافة بيانات تجريبية
+// استخدم هذا الملف لإضافة مطاعم تجريبية لاختبار المنصة
+
+const mongoose = require('mongoose');
+require('dotenv').config();
+
+// Restaurant Schema
+const restaurantSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String, required: true },
+  category: { type: String, required: true },
+  address: { type: String, required: true },
+  phone: { type: String, required: true },
+  image: { type: String, default: 'https://via.placeholder.com/400x300?text=Restaurant' },
+  rating: { type: Number, default: 0, min: 0, max: 5 },
+  reviewCount: { type: Number, default: 0 },
+  openingHours: { type: String, default: '9:00 AM - 11:00 PM' },
+  priceRange: { type: String, default: '$$' },
+  features: [String],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Restaurant = mongoose.model('Restaurant', restaurantSchema);
+
+// بيانات تجريبية
+const sampleRestaurants = [
+  {
+    name: "مطعم الشام الأصيل",
+    description: "أفضل المأكولات الشامية التقليدية في بغداد، مع أطباق مميزة من المطبخ السوري",
+    category: "مأكولات عربية",
+    address: "بغداد، شارع المنصور",
+    phone: "07XX XXX 1234",
+    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600",
+    rating: 4.5,
+    reviewCount: 125,
+    openingHours: "10:00 صباحاً - 12:00 منتصف الليل",
+    priceRange: "$$",
+    features: ["واي فاي مجاني", "موقف سيارات", "عائلي", "خدمة توصيل"]
+  },
+  {
+    name: "برجر بلس",
+    description: "وجبات سريعة طازجة ولذيذة، برجر مشوي على الفحم مع صوصات خاصة",
+    category: "وجبات سريعة",
+    address: "بغداد، منطقة الكرادة",
+    phone: "07XX XXX 5678",
+    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600",
+    rating: 4.2,
+    reviewCount: 89,
+    openingHours: "11:00 صباحاً - 11:00 مساءً",
+    priceRange: "$",
+    features: ["خدمة سريعة", "توصيل مجاني", "عروض يومية"]
+  },
+  {
+    name: "روما الإيطالية",
+    description: "مطعم إيطالي فاخر يقدم أشهى أنواع البيتزا والباستا الإيطالية الأصلية",
+    category: "مأكولات إيطالية",
+    address: "بغداد، حي الجادرية",
+    phone: "07XX XXX 9012",
+    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600",
+    rating: 4.8,
+    reviewCount: 203,
+    openingHours: "12:00 ظهراً - 11:00 مساءً",
+    priceRange: "$$$$",
+    features: ["أجواء راقية", "موسيقى حية", "موقف سيارات مجاني", "غرف خاصة"]
+  },
+  {
+    name: "كافيه أراب",
+    description: "مقهى عصري يقدم أجود أنواع القهوة العربية والعالمية مع حلويات شرقية وغربية",
+    category: "مقاهي",
+    address: "بغداد، شارع الأمين",
+    phone: "07XX XXX 3456",
+    image: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600",
+    rating: 4.3,
+    reviewCount: 156,
+    openingHours: "8:00 صباحاً - 12:00 منتصف الليل",
+    priceRange: "$$",
+    features: ["واي فاي سريع", "مكان هادئ", "مناسب للعمل", "منافذ كهرباء"]
+  },
+  {
+    name: "سوشي تايم",
+    description: "أفضل مطعم سوشي في بغداد، أطباق آسيوية طازجة يحضرها طهاة يابانيون",
+    category: "مأكولات آسيوية",
+    address: "بغداد، منطقة الحارثية",
+    phone: "07XX XXX 7890",
+    image: "https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=600",
+    rating: 4.6,
+    reviewCount: 178,
+    openingHours: "1:00 ظهراً - 10:00 مساءً",
+    priceRange: "$$$",
+    features: ["طهاة يابانيون", "مكونات طازجة", "طلبات خاصة", "أطباق نباتية"]
+  },
+  {
+    name: "حلويات الريف",
+    description: "حلويات شرقية وغربية فاخرة، كنافة نابلسية وبقلاوة مميزة وكيك طازج",
+    category: "حلويات",
+    address: "بغداد، شارع فلسطين",
+    phone: "07XX XXX 2468",
+    image: "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?w=600",
+    rating: 4.7,
+    reviewCount: 267,
+    openingHours: "9:00 صباحاً - 11:00 مساءً",
+    priceRange: "$$",
+    features: ["منتجات طازجة يومياً", "طلبات مناسبات", "توصيل مجاني", "غلاف هدايا"]
+  },
+  {
+    name: "مشويات السلطان",
+    description: "أشهى المشاويات العراقية والعربية، كباب ومشاوي مميزة على الفحم",
+    category: "مأكولات عربية",
+    address: "بغداد، منطقة الزعفرانية",
+    phone: "07XX XXX 1357",
+    image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600",
+    rating: 4.4,
+    reviewCount: 198,
+    openingHours: "12:00 ظهراً - 11:00 مساءً",
+    priceRange: "$$",
+    features: ["مشاوي على الفحم", "أجواء عائلية", "موقف واسع", "قاعات مناسبات"]
+  },
+  {
+    name: "فرايد تشيكن هاوس",
+    description: "دجاج مقلي بوصفة خاصة، مقرمش من الخارج وطري من الداخل",
+    category: "وجبات سريعة",
+    address: "بغداد، شارع السعدون",
+    phone: "07XX XXX 9753",
+    image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=600",
+    rating: 4.1,
+    reviewCount: 142,
+    openingHours: "11:00 صباحاً - 12:00 منتصف الليل",
+    priceRange: "$",
+    features: ["وصفة خاصة", "وجبات عائلية", "توصيل سريع", "عروض أسبوعية"]
+  }
+];
+
+// دالة لإضافة البيانات
+async function seedDatabase() {
+  try {
+    // الاتصال بقاعدة البيانات
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smart-restaurants';
+    await mongoose.connect(mongoURI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('✅ متصل بقاعدة البيانات');
+
+    // حذف البيانات القديمة
+    await Restaurant.deleteMany({});
+    console.log('🗑️ تم حذف البيانات القديمة');
+
+    // إضافة البيانات الجديدة
+    await Restaurant.insertMany(sampleRestaurants);
+    console.log(`✅ تم إضافة ${sampleRestaurants.length} مطعم تجريبي`);
+
+    // عرض البيانات
+    const restaurants = await Restaurant.find({});
+    console.log('\n📋 المطاعم المضافة:');
+    restaurants.forEach((r, i) => {
+      console.log(`${i + 1}. ${r.name} - ${r.category}`);
+    });
+
+    console.log('\n🎉 تم إكمال العملية بنجاح!');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ حدث خطأ:', error.message);
+    process.exit(1);
+  }
+}
+
+// تشغيل الدالة
+seedDatabase();
