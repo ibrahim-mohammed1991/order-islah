@@ -1,150 +1,292 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
-const { Pool } = require('pg');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
 
-app.use(cors());
+// Middleware
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.urlencoded({ extended: true }));
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+// Static files
+app.use(express.static(path.join(__dirname, 'public')));
+
+// MongoDB Connection
+const connectDB = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smart-restaurants';
+    await mongoose.connect(mongoURI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('✅ MongoDB متصل بنجاح');
+  } catch (error) {
+    console.error('❌ خطأ في الاتصال بقاعدة البيانات:', error.message);
+    // استمر في العمل حتى بدون قاعدة بيانات (للتطوير)
+  }
+};
+
+connectDB();
+
+// Restaurant Schema
+const restaurantSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String, required: true },
+  category: { type: String, required: true },
+  address: { type: String, required: true },
+  phone: { type: String, required: true },
+  image: { type: String, default: 'https://via.placeholder.com/400x300?text=Restaurant' },
+  rating: { type: Number, default: 0, min: 0, max: 5 },
+  reviewCount: { type: Number, default: 0 },
+  openingHours: { type: String, default: '9:00 AM - 11:00 PM' },
+  priceRange: { type: String, default: '$$' },
+  features: [String],
+  coordinates: {
+    lat: Number,
+    lng: Number
+  },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
-app.set('db', pool);
+const Restaurant = mongoose.model('Restaurant', restaurantSchema);
 
-const authRoutes = require('./routes/auth');
-const restaurantRoutes = require('./routes/restaurants');
-const menuRoutes = require('./routes/menu');
-const orderRoutes = require('./routes/orders');
+// Review Schema
+const reviewSchema = new mongoose.Schema({
+  restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+  userName: { type: String, required: true },
+  rating: { type: Number, required: true, min: 1, max: 5 },
+  comment: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
 
-app.use('/api/auth', authRoutes);
-app.use('/api/restaurants', restaurantRoutes);
-app.use('/api/menu', menuRoutes);
-app.use('/api/orders', orderRoutes);
+const Review = mongoose.model('Review', reviewSchema);
 
-app.get('/', (req, res) => {
+// ==================== API Routes ====================
+
+// Health Check
+app.get('/api/health', (req, res) => {
   res.json({ 
-    message: 'مرحباً بك في منصة المطاعم الذكية',
-    status: 'online',
-    version: '1.0.0',
-    endpoints: {
-      health: '/api/health',
-      initDb: '/api/init-db',
-      restaurants: '/api/restaurants',
-      menu: '/api/menu',
-      orders: '/api/orders'
-    }
+    status: 'OK', 
+    message: 'Server is running',
+    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+    timestamp: new Date().toISOString()
   });
 });
 
-app.get('/api/health', async (req, res) => {
+// Get all restaurants
+app.get('/api/restaurants', async (req, res) => {
   try {
-    const result = await pool.query('SELECT NOW() as time, version() as version');
-    res.json({ 
-      status: 'OK',
-      database: 'Connected',
-      time: result.rows[0].time,
-      db_version: result.rows[0].version.split(' ')[0]
-    });
+    const { category, search } = req.query;
+    let query = {};
+
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { address: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const restaurants = await Restaurant.find(query).sort({ createdAt: -1 });
+    res.json({ success: true, data: restaurants, count: restaurants.length });
   } catch (error) {
-    res.status(500).json({ 
-      status: 'Error',
-      database: 'Disconnected',
-      error: error.message 
-    });
+    console.error('❌ خطأ في جلب المطاعم:', error);
+    res.status(500).json({ success: false, message: 'حدث خطأ في جلب المطاعم', error: error.message });
   }
 });
 
-app.get('/api/init-db', async (req, res) => {
+// Get single restaurant
+app.get('/api/restaurants/:id', async (req, res) => {
   try {
-    const initSQL = `
-      CREATE TABLE IF NOT EXISTS restaurants (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        slug VARCHAR(100) UNIQUE NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        logo VARCHAR(10) DEFAULT '🍔',
-        username VARCHAR(100) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        telegram_bot_token VARCHAR(255),
-        telegram_chat_id VARCHAR(100),
-        phone VARCHAR(20),
-        address TEXT,
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'المطعم غير موجود' });
+    }
+    res.json({ success: true, data: restaurant });
+  } catch (error) {
+    console.error('❌ خطأ في جلب المطعم:', error);
+    res.status(500).json({ success: false, message: 'حدث خطأ في جلب المطعم', error: error.message });
+  }
+});
 
-      CREATE TABLE IF NOT EXISTS menu_items (
-        id SERIAL PRIMARY KEY,
-        restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        price INTEGER NOT NULL,
-        category VARCHAR(100) NOT NULL,
-        image VARCHAR(10) DEFAULT '🍽️',
-        available BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
+// Create restaurant
+app.post('/api/restaurants', async (req, res) => {
+  try {
+    console.log('📥 طلب إضافة مطعم:', req.body);
 
-      CREATE TABLE IF NOT EXISTS orders (
-        id SERIAL PRIMARY KEY,
-        restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
-        order_number VARCHAR(50) UNIQUE NOT NULL,
-        items JSONB NOT NULL,
-        customer_name VARCHAR(255),
-        customer_phone VARCHAR(20) NOT NULL,
-        customer_address TEXT,
-        order_type VARCHAR(20) NOT NULL CHECK (order_type IN ('delivery', 'pickup', 'reservation')),
-        total_price INTEGER NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'preparing', 'ready', 'completed', 'cancelled')),
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      );
+    // Validate required fields
+    const { name, description, category, address, phone } = req.body;
+    if (!name || !description || !category || !address || !phone) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'الرجاء ملء جميع الحقول المطلوبة',
+        missing: {
+          name: !name,
+          description: !description,
+          category: !category,
+          address: !address,
+          phone: !phone
+        }
+      });
+    }
 
-      CREATE TABLE IF NOT EXISTS notifications (
-        id SERIAL PRIMARY KEY,
-        restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
-        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-        message TEXT NOT NULL,
-        type VARCHAR(20) DEFAULT 'info',
-        is_read BOOLEAN DEFAULT false,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_menu_restaurant ON menu_items(restaurant_id);
-      CREATE INDEX IF NOT EXISTS idx_orders_restaurant ON orders(restaurant_id);
-      CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-      CREATE INDEX IF NOT EXISTS idx_notifications_restaurant ON notifications(restaurant_id);
-    `;
-
-    await pool.query(initSQL);
-    res.json({ 
+    const restaurant = new Restaurant(req.body);
+    await restaurant.save();
+    
+    console.log('✅ تم إضافة المطعم بنجاح:', restaurant._id);
+    res.status(201).json({ 
       success: true, 
-      message: 'Database initialized successfully' 
+      message: 'تم إضافة المطعم بنجاح', 
+      data: restaurant 
     });
   } catch (error) {
+    console.error('❌ خطأ في إضافة المطعم:', error);
     res.status(500).json({ 
       success: false, 
-      error: error.message 
+      message: 'حدث خطأ أثناء الحفظ', 
+      error: error.message,
+      details: error.errors ? Object.keys(error.errors) : []
     });
   }
 });
 
+// Update restaurant
+app.put('/api/restaurants/:id', async (req, res) => {
+  try {
+    req.body.updatedAt = Date.now();
+    const restaurant = await Restaurant.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'المطعم غير موجود' });
+    }
+
+    res.json({ success: true, message: 'تم تحديث المطعم بنجاح', data: restaurant });
+  } catch (error) {
+    console.error('❌ خطأ في تحديث المطعم:', error);
+    res.status(500).json({ success: false, message: 'حدث خطأ في التحديث', error: error.message });
+  }
+});
+
+// Delete restaurant
+app.delete('/api/restaurants/:id', async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findByIdAndDelete(req.params.id);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'المطعم غير موجود' });
+    }
+
+    // Delete associated reviews
+    await Review.deleteMany({ restaurantId: req.params.id });
+
+    res.json({ success: true, message: 'تم حذف المطعم بنجاح' });
+  } catch (error) {
+    console.error('❌ خطأ في حذف المطعم:', error);
+    res.status(500).json({ success: false, message: 'حدث خطأ في الحذف', error: error.message });
+  }
+});
+
+// Get restaurant reviews
+app.get('/api/restaurants/:id/reviews', async (req, res) => {
+  try {
+    const reviews = await Review.find({ restaurantId: req.params.id }).sort({ createdAt: -1 });
+    res.json({ success: true, data: reviews, count: reviews.length });
+  } catch (error) {
+    console.error('❌ خطأ في جلب التقييمات:', error);
+    res.status(500).json({ success: false, message: 'حدث خطأ في جلب التقييمات', error: error.message });
+  }
+});
+
+// Add review
+app.post('/api/restaurants/:id/reviews', async (req, res) => {
+  try {
+    const { userName, rating, comment } = req.body;
+
+    if (!userName || !rating || !comment) {
+      return res.status(400).json({ success: false, message: 'الرجاء ملء جميع حقول التقييم' });
+    }
+
+    const review = new Review({
+      restaurantId: req.params.id,
+      userName,
+      rating,
+      comment
+    });
+
+    await review.save();
+
+    // Update restaurant rating
+    const reviews = await Review.find({ restaurantId: req.params.id });
+    const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+    
+    await Restaurant.findByIdAndUpdate(req.params.id, {
+      rating: Math.round(avgRating * 10) / 10,
+      reviewCount: reviews.length
+    });
+
+    res.status(201).json({ success: true, message: 'تم إضافة التقييم بنجاح', data: review });
+  } catch (error) {
+    console.error('❌ خطأ في إضافة التقييم:', error);
+    res.status(500).json({ success: false, message: 'حدث خطأ في إضافة التقييم', error: error.message });
+  }
+});
+
+// Get statistics
+app.get('/api/stats', async (req, res) => {
+  try {
+    const totalRestaurants = await Restaurant.countDocuments();
+    const totalReviews = await Review.countDocuments();
+    const categories = await Restaurant.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalRestaurants,
+        totalReviews,
+        categories: categories.map(c => ({ name: c._id, count: c.count }))
+      }
+    });
+  } catch (error) {
+    console.error('❌ خطأ في جلب الإحصائيات:', error);
+    res.status(500).json({ success: false, message: 'حدث خطأ في جلب الإحصائيات', error: error.message });
+  }
+});
+
+// Serve frontend
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('❌ خطأ في الخادم:', err);
   res.status(500).json({ 
-    error: 'Server error',
-    message: err.message 
+    success: false, 
+    message: 'حدث خطأ في الخادم', 
+    error: err.message 
   });
 });
 
+// Start server
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log('Server running on port: ' + PORT);
+  console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
+  console.log(`🌐 الرابط: http://localhost:${PORT}`);
 });
-
-module.exports = app;
