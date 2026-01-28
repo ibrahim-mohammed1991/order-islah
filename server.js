@@ -26,7 +26,7 @@ const connectDB = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    console.log('✅ MongoDB متصل بنجاح');
+    console.log(`MongoDB متصل بنجاح`);
   } catch (error) {
     console.error('❌ خطأ في الاتصال بقاعدة البيانات:', error.message);
     // استمر في العمل حتى بدون قاعدة بيانات (للتطوير)
@@ -287,9 +287,9 @@ app.use((err, req, res, next) => {
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(✅ السيرفر يعمل على البورت ${PORT});
-    console.log(🌐 رابط محلي: http://localhost:${PORT});
+    console.log(`السيرفر يعمل على البورت ${PORT}`);
+    console.log(`رابط محلي: http://localhost:${PORT}`);
     if (process.env.RAILWAY_STATIC_URL) {
-        console.log(🚀 رابط Railway: https://${process.env.RAILWAY_STATIC_URL});
+        console.log(`رابط Railway: https://${process.env.RAILWAY_STATIC_URL}`);
     }
 });
